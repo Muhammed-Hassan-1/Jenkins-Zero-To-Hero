@@ -1,24 +1,42 @@
 pipeline {
-  agent {
-    docker {
-      image 'maven:3.9-eclipse-temurin-17'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
+  agent none  // No default agent
+  
   stages {
     stage('Checkout') {
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17'
+          args '--user root'
+        }
+      }
       steps {
         sh 'echo passed'
         //git branch: 'main', url: 'https://github.com/Muhammed-Hassan-1/Jenkins-Zero-To-Hero.git'
       }
     }
+    
     stage('Build and Test') {
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17'
+          args '--user root'
+          reuseNode true
+        }
+      }
       steps {
         sh 'ls -ltr'
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
       }
     }
+    
     stage('Static Code Analysis') {
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17'
+          args '--user root'
+          reuseNode true
+        }
+      }
       environment {
         SONAR_URL = "http://192.168.74.130:9000"
       }
@@ -28,32 +46,50 @@ pipeline {
         }
       }
     }
+    
     stage('Build and Push Docker Image') {
       agent {
         docker {
-          image 'docker:latest'  // Always use the latest Docker CLI
-          args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+          image 'docker:27-dind'
+          args '--user root --privileged'  // Privileged mode for true DinD
           reuseNode true
         }
       }
       environment {
         DOCKER_IMAGE = "mohamedhassan22/ultimate-cicd:${BUILD_NUMBER}"
+        DOCKER_TLS_CERTDIR = ""  // Disable TLS for simplicity
       }
       steps {
         script {
+          // Start Docker daemon in background
+          sh '''
+            dockerd-entrypoint.sh &
+            sleep 5  # Wait for daemon to start
+          '''
+          
           sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
           
           withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            sh '''
-              echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-              docker push ${DOCKER_IMAGE}
-              docker logout
-            '''
+            retry(3) {
+              sh '''
+                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                docker push ${DOCKER_IMAGE}
+              '''
+            }
+            sh 'docker logout'
           }
         }
       }
     }
+    
     stage('Update Deployment File') {
+      agent {
+        docker {
+          image 'alpine/git:latest'
+          args '--user root'
+          reuseNode true
+        }
+      }
       environment {
         GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
         GIT_USER_NAME = "Muhammed-Hassan-1"
