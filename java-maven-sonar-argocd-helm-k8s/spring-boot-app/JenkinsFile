@@ -83,14 +83,29 @@ pipeline {
     }
     
     stage('Update Deployment File') {
-
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17'
+          args '--user root'
+          reuseNode true
+        }
+      }
       environment {
         GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
         GIT_USER_NAME = "Muhammed-Hassan-1"
       }
       steps {
-        withCredentials([string(credentialsId: '024cb37b-85d0-4456-b1a1-d16c53fc9a01', variable: 'GITHUB_TOKEN')]) {
+        withCredentials([
+          usernamePassword(
+            credentialsId: '024cb37b-85d0-4456-b1a1-d16c53fc9a01',
+            usernameVariable: 'GITHUB_USER',
+            passwordVariable: 'GITHUB_TOKEN'
+          )
+        ]) {
           sh '''
+            # تأكد إن git موجود (الصورة غالبًا فيها git، بس دي ضمان)
+            git --version || (apt-get update && apt-get install -y git)
+
             git config user.email "mohamedhasan7420@gmail.com"
             git config user.name "Mohamed Hassan"
 
@@ -99,6 +114,7 @@ pipeline {
             echo "Before:"
             grep -n "image:" "$FILE"
 
+            # حدّث image بالكامل (username + image name + tag)
             sed -i "s#image: .*#image: mohamedhassan22/ultimate-cicd:${BUILD_NUMBER}#g" "$FILE"
 
             echo "After:"
@@ -107,7 +123,7 @@ pipeline {
             git add "$FILE"
             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
 
-            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+            git push https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
           '''
         }
       }
