@@ -95,6 +95,9 @@ pipeline {
         GIT_USER_NAME = "Muhammed-Hassan-1"
       }
       steps {
+        // مهم جدًا: يجيب الريبو ويضمن وجود .git
+        checkout scm
+
         withCredentials([
           usernamePassword(
             credentialsId: '024cb37b-85d0-4456-b1a1-d16c53fc9a01',
@@ -103,8 +106,7 @@ pipeline {
           )
         ]) {
           sh '''
-            # تأكد إن git موجود (الصورة غالبًا فيها git، بس دي ضمان)
-            git --version || (apt-get update && apt-get install -y git)
+            git --version
 
             git config user.email "mohamedhasan7420@gmail.com"
             git config user.name "Mohamed Hassan"
@@ -112,13 +114,12 @@ pipeline {
             FILE="java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml"
 
             echo "Before:"
-            grep -n "image:" "$FILE"
+            grep -n "image:" "$FILE" || true
 
-            # حدّث image بالكامل (username + image name + tag)
             sed -i "s#image: .*#image: mohamedhassan22/ultimate-cicd:${BUILD_NUMBER}#g" "$FILE"
 
             echo "After:"
-            grep -n "image:" "$FILE"
+            grep -n "image:" "$FILE" || true
 
             git add "$FILE"
             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
