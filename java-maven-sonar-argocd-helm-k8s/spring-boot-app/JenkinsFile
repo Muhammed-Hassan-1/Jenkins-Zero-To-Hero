@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'maven:3.9-eclipse-temurin-17'  // or maven:3.9-eclipse-temurin-11
+      image 'maven:3.9-eclipse-temurin-17'
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
@@ -9,6 +9,7 @@ pipeline {
     stage('Checkout') {
       steps {
         sh 'echo passed'
+        //git branch: 'main', url: 'https://github.com/Muhammed-Hassan-1/Jenkins-Zero-To-Hero.git'
       }
     }
     stage('Build and Test') {
@@ -23,7 +24,7 @@ pipeline {
       }
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
         }
       }
     }
@@ -34,9 +35,9 @@ pipeline {
       }
       steps {
         script {
-          // Install Docker CLI in the container
+          // Install Docker CLI
           sh '''
-            apt-get update
+            apt-get update -qq
             apt-get install -y docker.io
           '''
           
@@ -51,7 +52,7 @@ pipeline {
     stage('Update Deployment File') {
       environment {
         GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-        GIT_USER_NAME = "Muhammed-Hassan-1"  // Changed to your username
+        GIT_USER_NAME = "Muhammed-Hassan-1"
       }
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
