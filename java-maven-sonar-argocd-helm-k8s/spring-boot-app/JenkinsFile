@@ -31,22 +31,25 @@ pipeline {
     stage('Build and Push Docker Image') {
       agent {
         docker {
-          image 'docker:24-dind'
+          image 'docker:latest'  // Always use the latest Docker CLI
           args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-          reuseNode true  // This ensures the stage runs on the same workspace
+          reuseNode true
         }
       }
       environment {
         DOCKER_IMAGE = "mohamedhassan22/ultimate-cicd:${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
       }
       steps {
         script {
           sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
           
-          sh "echo $REGISTRY_CREDENTIALS_PSW | docker login -u $REGISTRY_CREDENTIALS_USR --password-stdin"
-          sh "docker push ${DOCKER_IMAGE}"
-          sh "docker logout"
+          withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            sh '''
+              echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+              docker push ${DOCKER_IMAGE}
+              docker logout
+            '''
+          }
         }
       }
     }
