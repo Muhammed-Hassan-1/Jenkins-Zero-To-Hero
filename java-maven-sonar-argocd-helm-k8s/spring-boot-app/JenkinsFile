@@ -83,13 +83,7 @@ pipeline {
     }
     
     stage('Update Deployment File') {
-      agent {
-        docker {
-          image 'alpine/git:latest'
-          args '--user root'
-          reuseNode true
-        }
-      }
+
       environment {
         GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
         GIT_USER_NAME = "Muhammed-Hassan-1"
